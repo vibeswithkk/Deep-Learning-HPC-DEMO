@@ -1,0 +1,61 @@
+# Default values for deep-learning-hpc-demo
+replicaCount: 1
+
+image:
+  repository: deep-learning-hpc-demo
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+  metricsPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources:
+  limits:
+    cpu: 2
+    memory: 4Gi
+    nvidia.com/gpu: 1
+  requests:
+    cpu: 1
+    memory: 2Gi
+    nvidia.com/gpu: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: false
+  annotations: {}
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+
+config:
+  modelPath: "/checkpoints"
+  modelVersion: "1.0"
+  numClasses: 1000

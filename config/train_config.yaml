@@ -1,0 +1,49 @@
+# Training configuration example
+
+# Dataset configuration
+dataset:
+  name: "imagenet2012"
+  image_size: [224, 224]
+  num_classes: 1000
+  batch_size: 64
+  shuffle_buffer_size: 10000
+  prefetch_buffer_size: 2
+  num_parallel_calls: 4
+  augment: true
+
+# Training parameters
+training:
+  num_epochs: 100
+  learning_rate: 0.001
+  warmup_steps: 1000
+  weight_decay: 0.01
+  gradient_clipping: 1.0
+  label_smoothing: 0.1
+  use_mixed_precision: true
+
+# Model configuration
+model:
+  name: "FlaxMLP"
+  num_classes: 1000
+  hidden_sizes: [512, 256, 128]
+  dropout_rate: 0.1
+
+# Optimization
+optimization:
+  optimizer: "adam"
+  beta1: 0.9
+  beta2: 0.999
+  eps: 1e-8
+
+# Callbacks
+callbacks:
+  use_early_stopping: true
+  early_stopping_patience: 10
+  use_reduce_lr_on_plateau: true
+  reduce_lr_factor: 0.5
+  use_model_checkpointing: true
+
+# System
+system:
+  num_devices: 1
+  seed: 42

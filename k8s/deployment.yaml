@@ -1,0 +1,388 @@
+# Kubernetes Deployment Configuration for Deep Learning HPC DEMO
+# This configuration defines deployments, services, and other Kubernetes resources
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: deep-learning-hpc-demo
+
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-config
+  namespace: deep-learning-hpc-demo
+data:
+  MODEL_PATH: "/models/latest"
+  NUM_CLASSES: "1000"
+  INPUT_SHAPE: "[224, 224, 3]"
+  MAX_CONCURRENT_REQUESTS: "100"
+  CACHE_SIZE: "1000"
+  ENABLE_CACHING: "true"
+  ENABLE_CIRCUIT_BREAKER: "true"
+  CIRCUIT_BREAKER_FAILURE_THRESHOLD: "5"
+  CIRCUIT_BREAKER_TIMEOUT_SECONDS: "60"
+  ENABLE_RATE_LIMITING: "true"
+  RATE_LIMIT_REQUESTS_PER_SECOND: "100"
+  ENABLE_REQUEST_QUEUING: "true"
+  MAX_QUEUE_SIZE: "1000"
+  QUEUE_TIMEOUT_SECONDS: "30"
+  ENABLE_METRICS: "true"
+  METRICS_PORT: "8080"
+  ENABLE_AUDITING: "true"
+  AUDIT_LOG_PATH: "/logs/audit.log"
+  ENABLE_REQUEST_TRACING: "true"
+  MODEL_VERSION: "v1.0.0"
+
+---
+# Secret for sensitive configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-secrets
+  namespace: deep-learning-hpc-demo
+type: Opaque
+data:
+  # Base64 encoded secrets
+  API_KEY: "YmFzZTY0ZW5jb2RlZF9hcGlrZXk="
+  DB_PASSWORD: "YmFzZTY0ZW5jb2RlZF9wYXNzd29yZA=="
+
+---
+# PersistentVolume for model storage
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: model-storage-pv
+  namespace: deep-learning-hpc-demo
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  nfs:
+    server: nfs-server.example.com
+    path: "/models"
+
+---
+# PersistentVolumeClaim for model storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-storage-pvc
+  namespace: deep-learning-hpc-demo
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: nfs
+
+---
+# Headless service for Ray cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: ray-head-svc
+  namespace: deep-learning-hpc-demo
+  labels:
+    app: ray-head
+spec:
+  clusterIP: None
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+    - name: dashboard
+      port: 8265
+      targetPort: 8265
+    - name: serve
+      port: 8000
+      targetPort: 8000
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+  selector:
+    app: ray-head
+
+---
+# Service for model serving
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-serving-svc
+  namespace: deep-learning-hpc-demo
+  labels:
+    app: model-serving
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+  selector:
+    app: model-serving
+
+---
+# Head node deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ray-head
+  namespace: deep-learning-hpc-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ray-head
+  template:
+    metadata:
+      labels:
+        app: ray-head
+    spec:
+      containers:
+        - name: ray-head
+          image: rayproject/ray:latest-gpu
+          imagePullPolicy: Always
+          command: ["/bin/bash", "-c", "--"]
+          args:
+            - "ray start --head --port=6379 --object-manager-port=8076 --dashboard-host=0.0.0.0 && tail -f /dev/null"
+          ports:
+            - containerPort: 6379
+            - containerPort: 8265
+            - containerPort: 8000
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "4"
+              memory: "16Gi"
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "8"
+              memory: "32Gi"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: model-storage
+              mountPath: /models
+            - name: logs
+              mountPath: /logs
+          envFrom:
+            - configMapRef:
+                name: demo-config
+            - secretRef:
+                name: demo-secrets
+          env:
+            - name: RAY_HEAD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: model-storage-pvc
+        - name: logs
+          emptyDir: {}
+      nodeSelector:
+        kubernetes.io/role: worker
+        node.kubernetes.io/instance-type: p3.2xlarge
+
+---
+# Worker node deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ray-worker
+  namespace: deep-learning-hpc-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ray-worker
+  template:
+    metadata:
+      labels:
+        app: ray-worker
+    spec:
+      containers:
+        - name: ray-worker
+          image: rayproject/ray:latest-gpu
+          imagePullPolicy: Always
+          command: ["/bin/bash", "-c", "--"]
+          args:
+            - "ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076 && tail -f /dev/null"
+          env:
+            - name: RAY_HEAD_IP
+              value: "ray-head-svc"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "8Gi"
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "4"
+              memory: "16Gi"
+              nvidia.com/gpu: "1"
+      nodeSelector:
+        kubernetes.io/role: worker
+        node.kubernetes.io/instance-type: p3.2xlarge
+
+---
+# Model serving deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-serving
+  namespace: deep-learning-hpc-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: model-serving
+  template:
+    metadata:
+      labels:
+        app: model-serving
+    spec:
+      containers:
+        - name: model-serving
+          image: deep-learning-hpc-demo:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "2"
+              memory: "8Gi"
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "4"
+              memory: "16Gi"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: model-storage
+              mountPath: /models
+            - name: logs
+              mountPath: /logs
+          envFrom:
+            - configMapRef:
+                name: demo-config
+            - secretRef:
+                name: demo-secrets
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: model-storage-pvc
+        - name: logs
+          emptyDir: {}
+      nodeSelector:
+        kubernetes.io/role: worker
+        node.kubernetes.io/instance-type: p3.2xlarge
+
+---
+# HorizontalPodAutoscaler for model serving
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: model-serving-hpa
+  namespace: deep-learning-hpc-demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: model-serving
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Pods
+      pods:
+        metric:
+          name: requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "50"
+
+---
+# NetworkPolicy for secure communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-network-policy
+  namespace: deep-learning-hpc-demo
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: deep-learning-hpc-demo
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: deep-learning-hpc-demo
+
+---
+# ResourceQuota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: demo-resource-quota
+  namespace: deep-learning-hpc-demo
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 80Gi
+    requests.nvidia.com/gpu: "5"
+    limits.cpu: "40"
+    limits.memory: 160Gi
+    limits.nvidia.com/gpu: "10"
+    persistentvolumeclaims: "10"
+    services.loadbalancers: "2"
+    services.nodeports: "0"
+
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: model-serving-pdb
+  namespace: deep-learning-hpc-demo
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: model-serving

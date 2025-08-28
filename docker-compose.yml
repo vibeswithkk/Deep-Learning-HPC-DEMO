@@ -1,0 +1,242 @@
+# Docker Compose for Deep Learning HPC DEMO
+# This file defines services for local development and testing
+
+version: '3.8'
+
+services:
+  # Redis service for Ray cluster
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Ray head node
+  ray-head:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ray-head
+    ports:
+      - "8265:8265"  # Ray dashboard
+      - "8000:8000"  # Ray serve
+      - "8080:8080"  # Metrics
+    environment:
+      - MODEL_PATH=/models/latest
+      - NUM_CLASSES=1000
+      - INPUT_SHAPE=[224,224,3]
+      - MAX_CONCURRENT_REQUESTS=100
+      - CACHE_SIZE=1000
+      - ENABLE_CACHING=true
+      - ENABLE_CIRCUIT_BREAKER=true
+      - CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+      - CIRCUIT_BREAKER_TIMEOUT_SECONDS=60
+      - ENABLE_RATE_LIMITING=true
+      - RATE_LIMIT_REQUESTS_PER_SECOND=100
+      - ENABLE_REQUEST_QUEUING=true
+      - MAX_QUEUE_SIZE=1000
+      - QUEUE_TIMEOUT_SECONDS=30
+      - ENABLE_METRICS=true
+      - METRICS_PORT=8080
+      - ENABLE_AUDITING=true
+      - AUDIT_LOG_PATH=/logs/audit.log
+      - ENABLE_REQUEST_TRACING=true
+      - MODEL_VERSION=v1.0.0
+    volumes:
+      - ./models:/models
+      - ./logs:/logs
+      - ./data:/data
+      - ./src:/app/src
+    command: [
+      "/bin/bash", "-c",
+      "ray start --head --port=6379 --object-manager-port=8076 --dashboard-host=0.0.0.0 && tail -f /dev/null"
+    ]
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Ray worker node
+  ray-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ray-worker
+    environment:
+      - RAY_HEAD_IP=ray-head
+    command: [
+      "/bin/bash", "-c",
+      "ray start --address=ray-head:6379 --object-manager-port=8076 && tail -f /dev/null"
+    ]
+    depends_on:
+      - ray-head
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Model serving service
+  model-serving:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: model-serving
+    ports:
+      - "8000:8000"  # Model serving API
+      - "8080:8080"  # Metrics
+    environment:
+      - MODEL_PATH=/models/latest
+      - NUM_CLASSES=1000
+      - INPUT_SHAPE=[224,224,3]
+      - MAX_CONCURRENT_REQUESTS=100
+      - CACHE_SIZE=1000
+      - ENABLE_CACHING=true
+      - ENABLE_CIRCUIT_BREAKER=true
+      - CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+      - CIRCUIT_BREAKER_TIMEOUT_SECONDS=60
+      - ENABLE_RATE_LIMITING=true
+      - RATE_LIMIT_REQUESTS_PER_SECOND=100
+      - ENABLE_REQUEST_QUEUING=true
+      - MAX_QUEUE_SIZE=1000
+      - QUEUE_TIMEOUT_SECONDS=30
+      - ENABLE_METRICS=true
+      - METRICS_PORT=8080
+      - ENABLE_AUDITING=true
+      - AUDIT_LOG_PATH=/logs/audit.log
+      - ENABLE_REQUEST_TRACING=true
+      - MODEL_VERSION=v1.0.0
+    volumes:
+      - ./models:/models
+      - ./logs:/logs
+      - ./data:/data
+      - ./src:/app/src
+    command: ["python3", "src/deployment/serve_ray.py"]
+    depends_on:
+      - ray-head
+      - ray-worker
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Monitoring service (Prometheus)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Monitoring service (Grafana)
+  grafana:
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Database for storing training metadata
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=dlhpc_demo
+      - POSTGRES_USER=dlhpc_user
+      - POSTGRES_PASSWORD=dlhpc_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  # MLflow tracking server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.1.1
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+    command: [
+      "mlflow", "server",
+      "--host", "0.0.0.0",
+      "--port", "5000",
+      "--backend-store-uri", "postgresql://dlhpc_user:dlhpc_password@postgres:5432/dlhpc_demo",
+      "--default-artifact-root", "s3://mlflow/"
+    ]
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # MinIO for artifact storage
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+  # Weights & Biases local server (optional)
+  wandb-local:
+    image: wandb/local:latest
+    container_name: wandb-local
+    ports:
+      - "8081:8080"
+      - "8082:8081"
+    environment:
+      - WANDB_LOCAL_USERNAME=admin
+      - WANDB_LOCAL_PASSWORD=password
+    volumes:
+      - wandb_data:/vol
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  postgres_data:
+  minio_data:
+  wandb_data:

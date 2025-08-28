@@ -1,0 +1,105 @@
+# Example configuration for model serving
+
+# Model configuration
+model:
+  name: "FlaxMLP"
+  version: "1.0.0"
+  path: "./models/latest"
+  num_classes: 1000
+  input_shape: [224, 224, 3]
+  framework: "flax"
+
+# Serving configuration
+serving:
+  host: "0.0.0.0"
+  port: 8000
+  num_replicas: 2
+  max_batch_size: 64
+  batch_wait_timeout: 0.1
+  max_concurrent_requests: 100
+
+# Performance configuration
+performance:
+  enable_caching: true
+  cache_size: 1000
+  enable_circuit_breaker: true
+  circuit_breaker_failure_threshold: 5
+  circuit_breaker_timeout_seconds: 60
+  enable_rate_limiting: true
+  rate_limit_requests_per_second: 100
+  enable_request_queuing: true
+  max_queue_size: 1000
+  queue_timeout_seconds: 30
+
+# Security configuration
+security:
+  enable_authentication: false
+  api_key: ""
+  enable_encryption: true
+  ssl_certificate: ""
+  ssl_private_key: ""
+
+# Monitoring configuration
+monitoring:
+  enable_metrics: true
+  metrics_port: 8080
+  enable_logging: true
+  log_level: "INFO"
+  log_file: "./logs/serving.log"
+  enable_auditing: true
+  audit_log_path: "./logs/audit.log"
+  enable_request_tracing: true
+
+# Resource configuration
+resources:
+  num_cpus: 4
+  num_gpus: 1
+  memory_limit: "16GB"
+  object_store_memory: "8GB"
+
+# Advanced features
+advanced:
+  enable_adversarial_detection: false
+  adversarial_detection_threshold: 0.9
+  enable_input_validation: true
+  enable_output_validation: true
+  enable_model_versioning: true
+  default_model_version: "latest"
+  enable_auto_scaling: true
+  min_replicas: 1
+  max_replicas: 10
+  target_utilization: 0.7
+
+# Network configuration
+network:
+  timeout_seconds: 30
+  max_request_size: "10MB"
+  max_response_size: "10MB"
+  enable_compression: true
+  compression_level: 6
+
+# Health check configuration
+health:
+  enable_health_check: true
+  health_check_path: "/health"
+  ready_check_path: "/ready"
+  health_check_interval: 10
+  health_check_timeout: 5
+
+# Storage configuration
+storage:
+  enable_persistent_storage: true
+  model_storage_path: "./models"
+  checkpoint_storage_path: "./checkpoints"
+  log_storage_path: "./logs"
+
+# Integration configuration
+integration:
+  enable_prometheus: true
+  prometheus_port: 8080
+  enable_grafana: false
+  grafana_url: "http://localhost:3000"
+  enable_wandb: false
+  wandb_project: "deep-learning-hpc-demo"
+  enable_mlflow: false
+  mlflow_tracking_uri: "http://localhost:5000"

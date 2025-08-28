@@ -1,0 +1,154 @@
+{{- $fullName := include "deep-learning-hpc-demo.fullname" . -}}
+{{- $svcName := include "deep-learning-hpc-demo.name" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deep-learning-hpc-demo.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "deep-learning-hpc-demo.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "deep-learning-hpc-demo.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "deep-learning-hpc-demo.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.config.serving.metricsPort }}
+              protocol: TCP
+          env:
+            - name: MODEL_PATH
+              value: {{ .Values.config.model.path | quote }}
+            - name: NUM_CLASSES
+              value: {{ .Values.config.model.numClasses | quote }}
+            - name: INPUT_SHAPE
+              value: {{ .Values.config.model.inputShape | quote }}
+            - name: MAX_CONCURRENT_REQUESTS
+              value: {{ .Values.config.serving.maxConcurrentRequests | quote }}
+            - name: CACHE_SIZE
+              value: {{ .Values.config.serving.cacheSize | quote }}
+            - name: ENABLE_CACHING
+              value: {{ .Values.config.serving.enableCaching | quote }}
+            - name: ENABLE_CIRCUIT_BREAKER
+              value: {{ .Values.config.serving.enableCircuitBreaker | quote }}
+            - name: CIRCUIT_BREAKER_FAILURE_THRESHOLD
+              value: {{ .Values.config.serving.circuitBreakerFailureThreshold | quote }}
+            - name: CIRCUIT_BREAKER_TIMEOUT_SECONDS
+              value: {{ .Values.config.serving.circuitBreakerTimeoutSeconds | quote }}
+            - name: ENABLE_RATE_LIMITING
+              value: {{ .Values.config.serving.enableRateLimiting | quote }}
+            - name: RATE_LIMIT_REQUESTS_PER_SECOND
+              value: {{ .Values.config.serving.rateLimitRequestsPerSecond | quote }}
+            - name: ENABLE_REQUEST_QUEUING
+              value: {{ .Values.config.serving.enableRequestQueuing | quote }}
+            - name: MAX_QUEUE_SIZE
+              value: {{ .Values.config.serving.maxQueueSize | quote }}
+            - name: QUEUE_TIMEOUT_SECONDS
+              value: {{ .Values.config.serving.queueTimeoutSeconds | quote }}
+            - name: ENABLE_METRICS
+              value: {{ .Values.config.serving.enableMetrics | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.config.serving.metricsPort | quote }}
+            - name: ENABLE_AUDITING
+              value: {{ .Values.config.serving.enableAuditing | quote }}
+            - name: AUDIT_LOG_PATH
+              value: {{ .Values.config.serving.auditLogPath | quote }}
+            - name: ENABLE_REQUEST_TRACING
+              value: {{ .Values.config.serving.enableRequestTracing | quote }}
+            - name: MODEL_VERSION
+              value: {{ .Values.config.model.version | quote }}
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $fullName }}-secrets
+                  key: api-key
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $fullName }}-secrets
+                  key: db-password
+          {{- with .Values.env }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: model-storage
+              mountPath: {{ .Values.config.model.path }}
+            - name: logs
+              mountPath: {{ dir .Values.config.serving.auditLogPath }}
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: model-storage
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ $fullName }}-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: logs
+          emptyDir: {}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

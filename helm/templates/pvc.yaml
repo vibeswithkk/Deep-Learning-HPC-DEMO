@@ -1,0 +1,19 @@
+{{- if .Values.persistence.enabled -}}
+{{- $fullName := include "deep-learning-hpc-demo.fullname" . -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullName }}-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deep-learning-hpc-demo.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+{{- end }}

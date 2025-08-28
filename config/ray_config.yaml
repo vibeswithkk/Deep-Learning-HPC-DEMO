@@ -1,0 +1,233 @@
+# Ray Cluster Configuration for Deep Learning HPC DEMO
+# This configuration defines resources, autoscaling, and deployment settings
+
+# Cluster metadata
+cluster_name: deep-learning-hpc-demo
+max_workers: 10
+upscaling_speed: 1.0
+docker:
+  image: "rayproject/ray:latest-gpu"
+  container_name: "ray_docker"
+
+# Provider configuration (adjust based on your cloud provider)
+provider:
+  type: aws  # or gcp, azure, kubernetes, local
+  region: us-west-2
+  availability_zone: us-west-2a
+  cache_stopped_nodes: false
+
+# Authentication (update with your key paths)
+auth:
+  ssh_user: ubuntu
+  ssh_private_key: ~/.ssh/id_rsa
+
+# Head node configuration
+head_node:
+  InstanceType: p3.8xlarge  # 4x V100 GPUs
+  ImageId: latest_dlami
+  
+  # Additional configurations for head node
+  InstanceMarketOptions:
+    MarketType: on-demand
+
+# Worker node configuration
+worker_nodes:
+  InstanceType: p3.2xlarge  # 1x V100 GPU
+  ImageId: latest_dlami
+  InstanceMarketOptions:
+    MarketType: on-demand
+
+# File mounts (for sharing code and data)
+file_mounts: {
+  "/home/ubuntu/code/": "./",
+}
+
+# Setup commands to run on all nodes
+setup_commands:
+  - echo "Installing dependencies..."
+  - pip install -r requirements.txt
+  - pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+  - pip install jax[cuda11_pip] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+  - pip install flax optax ray[serve] tensorflow tensorflow-datasets
+  - pip install wandb mlflow psutil gputil
+
+# Startup commands for head node
+head_start_ray_commands:
+  - ray stop
+  - ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml
+
+# Startup commands for worker nodes
+worker_start_ray_commands:
+  - ray stop
+  - ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
+
+# Autoscaler configuration
+autoscaler:
+  # Minimum number of workers to keep running
+  min_workers: 2
+  
+  # Maximum number of workers to launch
+  max_workers: 10
+  
+  # Target CPU utilization fraction for the cluster
+  target_utilization_fraction: 0.8
+  
+  # Time to wait before scaling up (in seconds)
+  upscale_delay: 300
+  
+  # Time to wait before scaling down (in seconds)
+  downscale_delay: 900
+  
+  # Concurrent node launches
+  max_concurrent_launches: 2
+
+# Resource specifications
+available_node_types:
+  head_node:
+    node_config:
+      InstanceType: p3.8xlarge
+    resources: {"CPU": 32, "GPU": 4, "Memory": 245760}
+    max_workers: 0
+    
+  gpu_worker:
+    node_config:
+      InstanceType: p3.2xlarge
+    resources: {"CPU": 8, "GPU": 1, "Memory": 61440}
+    max_workers: 10
+
+# Head node type
+head_node_type: head_node
+
+# File mounts sync behavior
+file_mounts_sync_continuously: true
+
+# Health check configurations
+health_check:
+  # Node heartbeat timeout in seconds
+  node_heartbeat_timeout: 30
+  
+  # Worker node startup timeout in seconds
+  worker_startup_timeout: 1200
+
+# Logging configuration
+logging:
+  # Log rotation size in MB
+  log_rotation_size: 100
+  
+  # Number of log files to keep
+  log_rotation_backups: 5
+  
+  # Enable debug logging
+  debug_log_level: false
+
+# Metrics configuration
+metrics:
+  # Enable metrics collection
+  enable: true
+  
+  # Port for metrics server
+  port: 8080
+  
+  # Metrics collection interval in seconds
+  collection_interval: 10
+
+# Security configuration
+security:
+  # Enable authentication
+  enable_auth: true
+  
+  # Enable encryption
+  enable_encryption: true
+  
+  # Allowed IP ranges (adjust for your network)
+  allowed_ip_ranges: ["0.0.0.0/0"]
+
+# Network configuration
+network:
+  # Port for Ray client server
+  client_server_port: 10001
+  
+  # Port for dashboard
+  dashboard_port: 8265
+  
+  # Port for Ray serve
+  serve_port: 8000
+  
+  # Custom ports for application
+  custom_ports: [8080, 8081, 8082]
+
+# Storage configuration
+storage:
+  # Enable persistent storage
+  enable_persistent_storage: true
+  
+  # Storage path for checkpoints
+  checkpoint_path: "/mnt/ray/checkpoints"
+  
+  # Storage path for logs
+  log_path: "/mnt/ray/logs"
+  
+  # Storage path for datasets
+  data_path: "/mnt/ray/data"
+
+# Serve configuration
+serve:
+  # Enable Ray Serve
+  enable: true
+  
+  # Serve port
+  port: 8000
+  
+  # Number of replicas for deployments
+  num_replicas: 2
+  
+  # Max batch size for deployments
+  max_batch_size: 64
+  
+  # Batch wait timeout in seconds
+  batch_wait_timeout: 0.1
+
+# Kubernetes configuration (if using Kubernetes)
+kubernetes:
+  # Namespace for Ray cluster
+  namespace: ray
+  
+  # Service account for Ray pods
+  service_account: ray
+  
+  # Enable operator mode
+  enable_operator: true
+  
+  # Operator image
+  operator_image: "rayproject/ray:kuberay-operator-0.5.0"
+  
+  # Image pull policy
+  image_pull_policy: "Always"
+
+# Local development configuration
+local:
+  # Number of CPUs for local development
+  num_cpus: 8
+  
+  # Number of GPUs for local development
+  num_gpus: 1
+  
+  # Memory in GB for local development
+  memory: 16
+  
+  # Object store memory in GB
+  object_store_memory: 8
+
+# Testing configuration
+testing:
+  # Enable testing mode
+  enable: false
+  
+  # Test duration in seconds
+  duration: 3600
+  
+  # Test workload
+  workload: "training"
+  
+  # Metrics to collect during testing
+  metrics: ["throughput", "latency", "resource_utilization"]

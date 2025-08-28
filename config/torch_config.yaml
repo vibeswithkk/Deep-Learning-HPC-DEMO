@@ -1,0 +1,146 @@
+# Example configuration for PyTorch models
+
+# Model configuration
+model:
+  name: "TorchDeepSpeedMLP"
+  num_classes: 1000
+  hidden_sizes: [512, 256, 128]
+  dropout_rate: 0.1
+  use_bias: true
+  use_layer_norm: false
+  use_batch_norm: false
+  activation: "relu"
+  output_activation: null
+  dtype: "float32"
+
+# Training configuration
+training:
+  num_epochs: 100
+  batch_size: 64
+  learning_rate: 0.001
+  warmup_steps: 1000
+  weight_decay: 0.01
+  gradient_clipping: 1.0
+  label_smoothing: 0.1
+  use_mixed_precision: true
+  use_ema: true
+  ema_decay: 0.9999
+  use_lookahead: true
+  lookahead_steps: 5
+  lookahead_alpha: 0.5
+  use_deepspeed: true
+  deepspeed_config: "./config/deepspeed_config.json"
+
+# Data configuration
+data:
+  dataset_name: "imagenet2012"
+  image_size: [224, 224]
+  num_classes: 1000
+  batch_size: 64
+  shuffle_buffer_size: 10000
+  num_workers: 4
+  pin_memory: true
+  augment: true
+  use_mixup: true
+  mixup_alpha: 0.2
+  use_cutmix: true
+  cutmix_alpha: 1.0
+  use_label_smoothing: true
+  label_smoothing_factor: 0.1
+
+# Optimization configuration
+optimization:
+  optimizer: "adam"
+  learning_rate_schedule: "cosine_decay"
+  beta1: 0.9
+  beta2: 0.999
+  eps: 1e-8
+  weight_decay: 0.01
+  gradient_clipping: 1.0
+  use_gradient_centralization: true
+  use_adaptive_gradient_clipping: false
+  adaptive_clipping_factor: 0.01
+
+# Advanced features
+advanced:
+  use_stochastic_depth: true
+  stochastic_depth_rate: 0.1
+  use_token_dropout: false
+  token_dropout_rate: 0.1
+  use_temporal_dropout: false
+  temporal_dropout_rate: 0.1
+  use_layer_scaling: true
+  layer_scaling_init: 1e-6
+  use_expert_parallelism: false
+  num_experts: 8
+  expert_capacity_factor: 1.25
+  use_attention: false
+  attention_heads: 8
+  attention_dim: 64
+  use_flash_attention: false
+  use_rotary_position_embedding: false
+  use_alibi_bias: false
+  use_consistency_regularization: false
+  consistency_regularization_weight: 0.1
+  use_adversarial_training: false
+  adversarial_epsilon: 0.01
+  adversarial_alpha: 1.0
+
+# Regularization
+regularization:
+  use_dropout: true
+  dropout_rate: 0.1
+  use_weight_decay: true
+  weight_decay_rate: 0.01
+  use_label_smoothing: true
+  label_smoothing_factor: 0.1
+  use_focal_loss: false
+  focal_loss_alpha: 0.25
+  focal_loss_gamma: 2.0
+
+# Callbacks
+callbacks:
+  use_early_stopping: true
+  early_stopping_monitor: "val_loss"
+  early_stopping_patience: 10
+  early_stopping_min_delta: 0.001
+  use_reduce_lr_on_plateau: true
+  reduce_lr_monitor: "val_loss"
+  reduce_lr_factor: 0.5
+  reduce_lr_patience: 5
+  reduce_lr_min_lr: 1e-7
+  use_model_checkpointing: true
+  checkpoint_monitor: "val_accuracy"
+  checkpoint_mode: "max"
+  checkpoint_save_best_only: true
+  checkpoint_save_weights_only: false
+  use_csv_logger: true
+  csv_logger_filename: "training_log.csv"
+  use_tensorboard: true
+  tensorboard_log_dir: "./logs/tensorboard"
+  use_wandb: false
+  wandb_project: "deep-learning-hpc-demo"
+  use_mlflow: false
+  mlflow_experiment_name: "deep-learning-hpc-demo"
+
+# System configuration
+system:
+  device: "cuda"
+  use_distributed_training: false
+  use_profiling: false
+  profile_frequency: 100
+  use_checkpointing: true
+  checkpoint_frequency: 10
+  checkpoint_dir: "./checkpoints"
+  log_level: "INFO"
+  seed: 42
+
+# Evaluation configuration
+evaluation:
+  batch_size: 64
+  use_test_time_augmentation: false
+  num_augmentation_samples: 5
+  use_ensemble: false
+  ensemble_models: []
+  use_calibration: false
+  calibration_method: "temperature_scaling"

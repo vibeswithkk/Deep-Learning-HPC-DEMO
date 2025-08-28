@@ -1,0 +1,29 @@
+{{- $fullName := include "deep-learning-hpc-demo.fullname" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullName }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deep-learning-hpc-demo.labels" . | nindent 4 }}
+data:
+  MODEL_PATH: {{ .Values.config.model.path | quote }}
+  NUM_CLASSES: {{ .Values.config.model.numClasses | quote }}
+  INPUT_SHAPE: {{ .Values.config.model.inputShape | quote }}
+  MAX_CONCURRENT_REQUESTS: {{ .Values.config.serving.maxConcurrentRequests | quote }}
+  CACHE_SIZE: {{ .Values.config.serving.cacheSize | quote }}
+  ENABLE_CACHING: {{ .Values.config.serving.enableCaching | quote }}
+  ENABLE_CIRCUIT_BREAKER: {{ .Values.config.serving.enableCircuitBreaker | quote }}
+  CIRCUIT_BREAKER_FAILURE_THRESHOLD: {{ .Values.config.serving.circuitBreakerFailureThreshold | quote }}
+  CIRCUIT_BREAKER_TIMEOUT_SECONDS: {{ .Values.config.serving.circuitBreakerTimeoutSeconds | quote }}
+  ENABLE_RATE_LIMITING: {{ .Values.config.serving.enableRateLimiting | quote }}
+  RATE_LIMIT_REQUESTS_PER_SECOND: {{ .Values.config.serving.rateLimitRequestsPerSecond | quote }}
+  ENABLE_REQUEST_QUEUING: {{ .Values.config.serving.enableRequestQueuing | quote }}
+  MAX_QUEUE_SIZE: {{ .Values.config.serving.maxQueueSize | quote }}
+  QUEUE_TIMEOUT_SECONDS: {{ .Values.config.serving.queueTimeoutSeconds | quote }}
+  ENABLE_METRICS: {{ .Values.config.serving.enableMetrics | quote }}
+  METRICS_PORT: {{ .Values.config.serving.metricsPort | quote }}
+  ENABLE_AUDITING: {{ .Values.config.serving.enableAuditing | quote }}
+  AUDIT_LOG_PATH: {{ .Values.config.serving.auditLogPath | quote }}
+  ENABLE_REQUEST_TRACING: {{ .Values.config.serving.enableRequestTracing | quote }}
+  MODEL_VERSION: {{ .Values.config.model.version | quote }}

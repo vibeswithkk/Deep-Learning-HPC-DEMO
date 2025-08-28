@@ -1,0 +1,214 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deep-learning-hpc-demo"
+version = "0.1.0"
+description = "A comprehensive demonstration of high-performance computing techniques applied to deep learning"
+readme = "README.md"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "jax>=0.4.0",
+    "jaxlib>=0.4.0",
+    "flax>=0.6.0",
+    "optax>=0.1.0",
+    "torch>=1.13.0",
+    "torchvision>=0.14.0",
+    "deepspeed>=0.8.0",
+    "ray[serve]>=2.2.0",
+    "tensorflow>=2.11.0",
+    "tensorflow-datasets>=4.8.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.2.0",
+    "pandas>=1.5.0",
+    "matplotlib>=3.6.0",
+    "seaborn>=0.12.0",
+    "wandb>=0.13.0",
+    "mlflow>=2.1.0",
+    "psutil>=5.9.0",
+    "gputil>=1.4.0",
+    "prometheus-client>=0.16.0",
+    "pyyaml>=6.0",
+    "h5py>=3.8.0",
+    "zarr>=2.13.0",
+    "albumentations>=1.3.0",
+    "opencv-python>=4.7.0",
+    "pillow>=9.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.0.0",
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "bandit>=1.7.0",
+    "safety>=2.0.0",
+    "locust>=2.10.0",
+    "jupyter>=1.0.0",
+    "jupyterlab>=3.6.0",
+    "bump2version>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-username/deep-learning-hpc-demo"
+Documentation = "https://github.com/your-username/deep-learning-hpc-demo/docs"
+Repository = "https://github.com/your-username/deep-learning-hpc-demo"
+Issues = "https://github.com/your-username/deep-learning-hpc-demo/issues"
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | docs
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["src"]
+known_third_party = [
+    "albumentations",
+    "cv2",
+    "deepspeed",
+    "flax",
+    "gputil",
+    "h5py",
+    "jax",
+    "matplotlib",
+    "mlflow",
+    "numpy",
+    "optax",
+    "pandas",
+    "pillow",
+    "prometheus_client",
+    "psutil",
+    "pyyaml",
+    "ray",
+    "scipy",
+    "seaborn",
+    "setuptools",
+    "sklearn",
+    "tensorflow",
+    "tensorflow_datasets",
+    "torch",
+    "torchvision",
+    "wandb",
+    "zarr",
+]
+
+[tool.mypy]
+python_version = "3.8"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+plugins = ["numpy.typing.mypy_plugin"]
+
+[[tool.mypy.overrides]]
+module = [
+    "torch.*",
+    "torchvision.*",
+    "jax.*",
+    "flax.*",
+    "optax.*",
+    "ray.*",
+    "tensorflow.*",
+    "tensorflow_datasets.*",
+    "wandb.*",
+    "mlflow.*",
+    "deepspeed.*",
+    "gputil.*",
+    "albumentations.*",
+    "cv2.*",
+    "prometheus_client.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.bandit]
+exclude_dirs = [".venv", "venv", "tests", "docs"]
+skips = ["B101"]
+
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "helm/Chart.yaml"
+search = 'version: {current_version}'
+replace = 'version: {new_version}'
+
+[[tool.bumpversion.files]]
+filename = "helm/Chart.yaml"
+search = 'appVersion: "{current_version}"'
+replace = 'appVersion: "{new_version}"'

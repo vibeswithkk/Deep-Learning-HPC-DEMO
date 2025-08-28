@@ -1,0 +1,184 @@
+# Default values for deep-learning-hpc-demo Helm chart
+
+# Global Docker image parameters
+image:
+  repository: deep-learning-hpc-demo
+  tag: latest
+  pullPolicy: Always
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+
+# Override the name of the chart
+nameOverride: ""
+fullnameOverride: ""
+
+# Number of replicas for the deployment
+replicaCount: 2
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 4
+    memory: 16Gi
+    nvidia.com/gpu: 1
+  requests:
+    cpu: 2
+    memory: 8Gi
+    nvidia.com/gpu: 1
+
+# Pod security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Container security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+
+# Service configuration
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8000
+  metricsPort: 8080
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+# Configuration for the application
+config:
+  model:
+    path: "/models/latest"
+    numClasses: 1000
+    inputShape: "[224, 224, 3]"
+    version: "v1.0.0"
+  
+  serving:
+    maxConcurrentRequests: 100
+    cacheSize: 1000
+    enableCaching: true
+    enableCircuitBreaker: true
+    circuitBreakerFailureThreshold: 5
+    circuitBreakerTimeoutSeconds: 60
+    enableRateLimiting: true
+    rateLimitRequestsPerSecond: 100
+    enableRequestQueuing: true
+    maxQueueSize: 1000
+    queueTimeoutSeconds: 30
+    enableMetrics: true
+    metricsPort: 8080
+    enableAuditing: true
+    auditLogPath: "/logs/audit.log"
+    enableRequestTracing: true
+
+# Secret configuration (values should be overridden in a secret values file)
+secrets:
+  apiKey: "base64encoded_apikey"
+  dbPassword: "base64encoded_password"
+
+# Persistent volume configuration
+persistence:
+  enabled: true
+  storageClass: "nfs"
+  accessMode: ReadWriteMany
+  size: 100Gi
+  path: /models
+
+# Redis dependency configuration
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+    password: "redis_password"
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector for pod placement
+nodeSelector:
+  kubernetes.io/role: worker
+  node.kubernetes.io/instance-type: p3.2xlarge
+
+# Tolerations for pod placement
+tolerations: []
+
+# Affinity rules for pod placement
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Service account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Monitoring and logging
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+    namespace: ""
+
+# Environment variables
+env: {}
+
+# Additional volume mounts
+volumeMounts: []
+
+# Additional volumes
+volumes: []
+
+# Additional containers
+additionalContainers: []
+
+# Init containers
+initContainers: []
+
+# Annotations for the deployment
+annotations: {}
+
+# Labels for the deployment
+labels: {}
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
