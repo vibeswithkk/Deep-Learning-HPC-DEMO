@@ -13,7 +13,7 @@ import ml_collections
 import orbax.checkpoint as orbax
 import yaml
 
-from src.models.flax_cnn import create_model, ModelConfig, train_step, get_dataset, save_checkpoint
+from src.models.flax_cnn import create_model, ModelConfig, train_step, get_dataset, save_checkpoint, create_train_state
 
 def train_and_evaluate(config_path: str, workdir: str):
     with open(config_path, 'r') as f:
@@ -45,32 +45,13 @@ def train_and_evaluate(config_path: str, workdir: str):
                 'image': jnp.array(batch['image']),
                 'label': jnp.array(batch['label'])
             }
-            state, metrics = train_step(state, batch, dropout_rng)
+            state, metrics = train_step(state, batch, dropout_rng, config)
         
         if epoch % config_dict['training'].get('save_every', 10) == 0:
             save_checkpoint(state, f"{workdir}/checkpoints")
     
     save_checkpoint(state, f"{workdir}/final_checkpoint")
     return state
-
-def create_train_state(rng, config: ModelConfig, learning_rate: float = 0.001):
-    model = create_model(config)
-    variables = model.init(rng, jnp.ones([1, *config.input_shape]))
-    params = variables['params']
-    
-    if config_dict['training']['optimizer'] == 'adam':
-        tx = optax.adam(learning_rate=learning_rate)
-    elif config_dict['training']['optimizer'] == 'adamw':
-        tx = optax.adamw(learning_rate=learning_rate, weight_decay=config_dict['training'].get('weight_decay', 0.01))
-    elif config_dict['training']['optimizer'] == 'lion':
-        from lion import Lion
-        tx = Lion(learning_rate=learning_rate)
-    elif config_dict['training']['optimizer'] == 'lamb':
-        tx = optax.lamb(learning_rate=learning_rate, weight_decay=config_dict['training'].get('weight_decay', 0.01))
-    else:
-        tx = optax.sgd(learning_rate=learning_rate, momentum=config_dict['training'].get('momentum', 0.9))
-    
-    return train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
 
 if __name__ == "__main__":
     train_and_evaluate("config/train_config.yaml", "./results")

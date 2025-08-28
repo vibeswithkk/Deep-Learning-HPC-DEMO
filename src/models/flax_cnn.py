@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
-from typing import Any, Callable, Sequence, Tuple, Optional, Dict, Union, NamedTuple
+from typing import Any, Callable, Sequence, Tuple, Optional, Dict, Union, NamedTuple, List
 from flax.core import freeze, unfreeze
 from flax.traverse_util import flatten_dict, unflatten_dict
 import optax
@@ -1042,9 +1042,18 @@ class FlaxCNN(nn.Module):
         x = nn.Dense(features=self.config.num_classes, dtype=dtype, param_dtype=param_dtype, precision=precision)(x)
         return x
 
-def create_model(config: ModelConfig = None):
+def create_model(config: ModelConfig = None, num_classes: int = 1000):
+    """Create a FlaxCNN model with the specified configuration.
+    
+    Args:
+        config: ModelConfig object with model configuration parameters
+        num_classes: Number of output classes (used if config is None)
+        
+    Returns:
+        FlaxCNN model instance
+    """
     if config is None:
-        config = ModelConfig()
+        config = ModelConfig(num_classes=num_classes)
     return FlaxCNN(config=config)
 
 def create_optimizer(config: ModelConfig):
