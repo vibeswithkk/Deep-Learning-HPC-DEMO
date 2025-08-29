@@ -1,0 +1,43 @@
+# .gitattributes file for Deep Learning HPC DEMO project
+
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Force specific line endings for text files
+*.py text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.sh text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
+*.ini text eol=lf
+
+# Denote binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+
+# Jupyter notebooks
+*.ipynb text eol=lf
+
+# Documentation files
+*.rst text eol=lf
+*.tex text eol=lf
+
+# Configuration files
+Dockerfile text eol=lf
+.gitignore text eol=lf
+Makefile text eol=lf
+
+# Ensure proper diff for notebooks
+*.ipynb diff=ipynb
